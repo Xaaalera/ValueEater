@@ -10,20 +10,25 @@ require_once 'Data.php';
 class HelpDataWorker extends Data
 {
     
-    const KEY = ''; //ключь нужен обязательно
+    public static $KEY; //ключь нужен обязательно
+    public static $markerInputId; //маркерИД если вы планируете его передавать
+    public static $FormNameID; ///FormNameID если вы планируете передавать  название формы
+    public static $checkDuplicate; //проверка на дубли если нужна выставить 1
+    public static $projectId; //устанавливаем ProjectID нужно для событий  ;
+    public static $debug ; //если 1  - то включит отображение всех ошибок,  пользуйтесь аккуратно, все может вылезти наружу.
     
     
     
     //вы можете использовать метод через константы а не облачный, достаточно заменить
     //метод $this->conversionValue($array); на $this->conversionValueInConstant($arrayValue);
     //в  конструкторе класса
-    const NAMEARRAY  = array('name', 'fio', 'user_name');
-    const PHONEARRAY = array('phone', 'telephone');
-    const EMAILARRAY = array('email', 'mail', 'e-mail', 'user_mail', 'user_email');
-    const TITLE      = array('title');
-    const COMMENT    = array('comment', 'user_text', 'user_comment_area');
-    const FORMNAME   = array('iblock_name');
-    
+//    const NAMEARRAY  = array('name', 'fio', 'user_name');
+//    const PHONEARRAY = array('phone', 'telephone');
+//    const EMAILARRAY = array('email', 'mail', 'e-mail', 'user_mail', 'user_email');
+//    const TITLE      = array('title');
+//    const COMMENT    = array('comment', 'user_text', 'user_comment_area');
+//    const FORMNAME   = array('iblock_name');
+//
     private $_phone, $_email, $_name, $_title, $_comment, $_formname,$path;
     
     public function __construct(array $array = array())
@@ -31,8 +36,11 @@ class HelpDataWorker extends Data
         
         parent::__construct();
         $this->path = $_SERVER['DOCUMENT_ROOT'] . '/roistat' ;
-        $this->getFileInfo(); //проверяем  есть ли файл , если есть то  берем с него инфу, если нет , то качаем и открываем.
-        $this->conversionValue($array);
+        $this->debug();
+        if($array != array()){
+            $this->getFileInfo(); //проверяем  есть ли файл , если есть то  берем с него инфу, если нет , то качаем и открываем.
+            $this->conversionValue($array);
+        }
     }
     private function conversionValueInConstant($arrayValue)
     {
@@ -106,18 +114,80 @@ class HelpDataWorker extends Data
     }
     
     
+    private  function SetRoistatAddFields(){
+        $formID =HelpDataWorker::$FormNameID;
+        $marlerid=HelpDataWorker::$markerInputId;
+        if(mb_strlen($formID) != 0){
+            $this->setCustomField($formID,$this->getFormName());
+        }
+        if(mb_strlen($marlerid) != 0) {
+            $this->setCustomField($marlerid, $this->getRoistatMarker());
+        }
+    }
+    
     public function sendToRoistat()
     {
+        $this->SetRoistatAddFields();
+        
         $roistatData = array('roistat' => $this->getRoistatVisit(),
-                             'key'     => self::KEY,
+                             'key'     => HelpDataWorker::$KEY,
                              'title'   => !empty($this->getTitle()) ? $this->getTitle() : "Заявка с формы {$this->getFormName()}",
                              'comment' => $this->getComment(),
                              'name'    => !empty($this->getName()) ? $this->getName() : 'неизвестный контакт',
                              'email'   => $this->getEmail(),
                              'phone'   => $this->getPhone(),
                              'fields'  => $this->getCustomfields());
-        file_get_contents("https://cloud.roistat.com/api/proxy/1.0/leads/add?" . http_build_query($roistatData));
         
+        $duplicate = 0;
+        if(HelpDataWorker::$checkDuplicate){
+            $duplicate=   $this->checkDuplicate($roistatData);
+        }
+        if(!$duplicate) {
+            $url = "https://cloud.roistat.com/api/proxy/1.0/leads/add?" . http_build_query($roistatData);
+            $this->SendRequest($url);
+        }
     }
+    public function checkDuplicate($array){
+        $arrayCheck=sha1(md5(json_encode($array)));
+        $issetsArrayInCookie = isset($_COOKIE['roistat_help_entity']) ? $_COOKIE['roistat_help_entity'] : '' ;
+        if(mb_strlen($issetsArrayInCookie) == 0 ){
+            setcookie('roistat_help_entity',$arrayCheck,time()+300);
+            return 0;
+        }
+        elseif($arrayCheck == $issetsArrayInCookie){
+            return 1;
+        }
+        else{
+            return 0;
+        }
+    }
+    
+    //get
+    public function SendRequest($url){
+        $ch = curl_init();
+        curl_setopt ($ch, CURLOPT_URL, $url);
+        curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
+        $contents = curl_exec($ch);
+        return $contents;
+    }
+    
+    public  function sendEventToRoistat($eventName){
+        $projectID = HelpDataWorker::$projectId;
+        $url =  "https://cloud.roistat.com/api/site/1.0/{$projectID}/event/register?event={$eventName}&visit={$this->getRoistatVisit()}&data[page]={$_SERVER['HTTP_REFERER']}&data[domain]={$_SERVER['SERVER_NAME']}";
+        $reust  = $this->SendRequest($url);
+        return $reust;
+    }
+    
+    private  function debug(){
+        if(!HelpDataWorker::$debug) {
+            return ;
+        }
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
+    }
+    
+    
     
 }

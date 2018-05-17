@@ -13,7 +13,7 @@ class Data{
     public function __construct()
     {
         
-        $this->roistatVisit  = isset($_COOKIE['roistat_visit']) ? $_COOKIE['roistat_visit'] : '{visit}';
+        $this->roistatVisit  = isset($_COOKIE['roistat_visit']) ? $_COOKIE['roistat_visit'] : '';
         $this->roistatMarker = isset($_COOKIE['roistat_marker']) ? $_COOKIE['roistat_marker'] : 'Прямой заход';
         
     }
