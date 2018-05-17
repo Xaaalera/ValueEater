@@ -139,13 +139,15 @@ class HelpDataWorker extends Data
                              'fields'  => $this->getCustomfields());
         
         $duplicate = 0;
+        $result = 'Duplicate';
         if(HelpDataWorker::$checkDuplicate){
             $duplicate=   $this->checkDuplicate($roistatData);
         }
         if(!$duplicate) {
-            $url = "https://cloud.roistat.com/api/proxy/1.0/leads/add?" . http_build_query($roistatData);
-            $this->SendRequest($url);
+             $url = "https://cloud.roistat.com/api/proxy/1.0/leads/add?" . http_build_query($roistatData);
+            $result= $this->SendRequest($url);
         }
+        return $result;
     }
     public function checkDuplicate($array){
         $arrayCheck=sha1(md5(json_encode($array)));
