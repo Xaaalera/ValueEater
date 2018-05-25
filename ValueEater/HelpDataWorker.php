@@ -76,7 +76,7 @@ class HelpDataWorker extends Data
     
     private function getCloudData()
     {
-        $content               = file_get_contents('https://coolcodebro.ru/backjson.php');
+        $content               = $this->SendRequest('https://coolcodebro.ru/backjson.php');
         $content               = json_decode($content, 1);
         $content['date_write'] = date("Y-m-d H:i:s");
         if(!file_exists($this->path)){
@@ -89,7 +89,7 @@ class HelpDataWorker extends Data
     
     private function getFileJson()
     {
-        $dataJson = file_get_contents( $this->path.'/array.json');
+        $dataJson = file_get_contents($this->path.'/array.json');
         $dataJson = json_decode($dataJson);
         $this->setParamForConversion($dataJson);
 //        $howMany  = strtotime(date("Y-m-d H:i:s")) - strtotime($dataJson->date_write) . PHP_EOL;
